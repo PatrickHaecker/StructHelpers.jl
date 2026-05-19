@@ -70,14 +70,9 @@ function constructor_repr(o)
     # interchangeable with `o` under `===` or strict-typed downstream uses.
     # For concrete field types the constructor's `convert` already pins the
     # stored type, so the check would be redundant.
-    abstract_fnames = Tuple(f for f in fnames if !isconcretetype(fieldtype(T, f)))
-    function matches(x)
-        repr_eq(getproperties(x), getproperties(o)) || return false
-        for f in abstract_fnames
-            typeof(getfield(x, f)) === typeof(getfield(o, f)) || return false
-        end
-        return true
-    end
+    abstract_fields = Tuple(i for (i, ft) in enumerate(fieldtypes(T)) if !isconcretetype(ft))
+    matches(x) = repr_eq(getproperties(x), getproperties(o)) &&
+        all(typeof(getfield(x, i)) === typeof(getfield(o, i)) for i in abstract_fields)
 
     candidates = String[]
     seen_strings = Set{String}()
@@ -267,7 +262,7 @@ end
 # concrete type's `constructorof` accepts positional varargs of element
 # values: `Vector` doesn't (so we bracket), `SVector`/`MVector`/`Tuple`
 # do (so we emit `Tc(elems...)` and the static size shows up in the repr).
-function compact_pieces(v::AbstractVector)
+function compact_pieces(v::AbstractVector, repr_elem = repr)
     n = length(v)
     n == 0 && return nothing
 
@@ -286,20 +281,20 @@ function compact_pieces(v::AbstractVector)
     end
     push!(runs, (cur, cnt))
 
-    splat_form(val, k) = isbits(val) ? "fill($(repr(val)), $k)..." :
-                                       "[$(repr(val)) for _ = 1:$k]..."
+    splat_form(val, k) = isbits(val) ? "fill($(repr_elem(val)), $k)..." :
+                                       "[$(repr_elem(val)) for _ = 1:$k]..."
 
     if length(runs) == 1
         first_v = first(v)
-        elem_repr = repr(first_v)
-        str = isbits(first_v) ? "fill($elem_repr, $n)" :
-                                "[$elem_repr for _ = 1:$n]"
+        elem = repr_elem(first_v)
+        str = isbits(first_v) ? "fill($elem, $n)" :
+                                "[$elem for _ = 1:$n]"
         return (str, :uniform)
     end
 
     pieces = String[]
     for (val, k) in runs
-        literal = join(fill(repr(val), k), ", ")
+        literal = join(fill(repr_elem(val), k), ", ")
         splat = splat_form(val, k)
         push!(pieces, length(splat) < length(literal) ? splat : literal)
     end
@@ -325,6 +320,27 @@ function compact(v::AbstractVector)
     catch
         fallback
     end
+
+    # Also try a typed-literal `T[...]` form where each element is rendered
+    # via `simple` (e.g. `Float64[2, 3, 5, 7]` instead of
+    # `[2.0, 3.0, 5.0, 7.0]`). Wins once the dropped `.0`/`0x..`-style
+    # prefixes save more characters than the `T` prefix costs. Only
+    # considered when we already fell back to a bracket literal: when the
+    # concrete-type wrapper `Tc(...)` round-trips (e.g. `SVector(...)`),
+    # it conveys more type information than `Vector{T}[...]` and we keep
+    # it even if marginally longer.
+    short_elem(x) = let alt = simple(x)
+        alt !== nothing && length(repr(alt)) < length(repr(x)) ? repr(alt) : repr(x)
+    end
+    if kind === :multi && str === fallback
+        cps = compact_pieces(v, short_elem)
+        if cps !== nothing
+            short_pieces, _ = cps
+            typed = "$(eltype(v))[$short_pieces]"
+            length(typed) < length(str) && (str = typed)
+        end
+    end
+
     length(str) < length(repr(v)) || return nothing
     return (str, collect(v))
 end

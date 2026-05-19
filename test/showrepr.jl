@@ -290,6 +290,21 @@ end
     # Short runs aren't worth splatting → falls back to plain literal.
     @test repr(SVecField([1,17,0,0,0], [1.0])) ==
           "SVecField([1, 17, 0, 0, 0], [1.0])"
+
+    # Typed-literal form `T[...]` wins once the dropped `.0` / `0x..`
+    # prefixes save more characters than the `T` prefix costs.
+    # `Vector{Float64}` of length ≥ 4 with whole-valued elements:
+    # `Float64[2, 3, 5, 7]` (19) beats `[2.0, 3.0, 5.0, 7.0]` (20).
+    @test repr(SVecField([1, 2, 3], [2.0, 3.0, 5.0, 7.0])) ==
+          "SVecField([1, 2, 3], Float64[2, 3, 5, 7])"
+    # `Vector{Float64}` with one non-whole-valued element among several
+    # whole-valued ones: typed form still wins once enough `.0`s drop.
+    @test repr(SVecField([1, 2, 3], [2.0, 3.0, 5.0, 7.0, 3.5])) ==
+          "SVecField([1, 2, 3], Float64[2, 3, 5, 7, 3.5])"
+    # 3 elements: the typed form (16) ties the plain (15) — plain wins on
+    # `<` comparison, so we keep `[2.0, 3.0, 5.0]`.
+    @test repr(SVecField([1, 2, 3], [2.0, 3.0, 5.0])) ==
+          "SVecField([1, 2, 3], [2.0, 3.0, 5.0])"
 end
 
 # Fields whose concrete type's `constructorof` accepts positional varargs
