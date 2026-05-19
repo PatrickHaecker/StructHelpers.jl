@@ -99,7 +99,11 @@ error):
   *not* guaranteed to be stable across minor releases — don't pin
   golden files against it. If no constructor recreates the object,
   `showrepr` falls back to a non-executable `T(field = value, …)`
-  rendering.
+  rendering. Because `showrepr` calls candidate constructors during
+  `show`, the output is unstable if any of them is non-deterministic
+  (e.g. uses `rand`); use `kwshow` in that case. Any side effects in
+  those constructors (logging, I/O, ...) will run on every `show`, so
+  only enable `showrepr` if that is acceptable.
 
 Rule of thumb: pick `kwshow` if you want a predictable, name-every-field
 diagnostic; pick `showrepr` if you want `Base.show` to produce an

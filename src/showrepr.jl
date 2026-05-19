@@ -61,7 +61,23 @@ function constructor_repr(o)
     # `===`) still recognize a fresh reconstruction as equivalent. Going
     # through `repr_eq` on the `NamedTuple` retains tolerance for `NaN`
     # leaves and constructors that normalize `-0.0`/`0.0`.
-    matches(x) = repr_eq(getproperties(x), getproperties(o))
+    #
+    # For fields whose declared type is not concrete (abstract, `Union`, or
+    # `UnionAll`) we additionally require the stored value's type to match
+    # the original's. Otherwise a substitution like `1.0 → 1` would be
+    # accepted on an `x::Number` field, even though the reconstruction
+    # holds an `Int` rather than a `Float64` and is therefore not
+    # interchangeable with `o` under `===` or strict-typed downstream uses.
+    # For concrete field types the constructor's `convert` already pins the
+    # stored type, so the check would be redundant.
+    abstract_fnames = Tuple(f for f in fnames if !isconcretetype(fieldtype(T, f)))
+    function matches(x)
+        repr_eq(getproperties(x), getproperties(o)) || return false
+        for f in abstract_fnames
+            typeof(getfield(x, f)) === typeof(getfield(o, f)) || return false
+        end
+        return true
+    end
 
     candidates = String[]
     seen_strings = Set{String}()

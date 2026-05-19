@@ -413,3 +413,44 @@ SVararg(args...) = SVararg(args[1], args[2])
     s = sprint(show, SVararg(1, 2))
     @test SVararg(1, 2) == eval(Meta.parse(s))
 end
+
+# Abstract / Union / UnionAll field types: shortening must not silently
+# change the stored concrete type, otherwise `parse(show(o))` is no longer
+# `===`-interchangeable with `o`. See aplavin's `AbstractBox` example in
+# https://github.com/jw3126/StructHelpers.jl/pull/21#issuecomment-…
+mutable struct SAbstractField
+    x::Number
+end
+@battery SAbstractField showrepr
+
+struct SUnionField
+    x::Union{Int,Float64}
+end
+@battery SUnionField showrepr
+
+struct SUnionAllField
+    x::Vector  # Vector{T} where T
+end
+@battery SUnionAllField showrepr
+
+@testset "showrepr preserves concrete type of non-concrete fields" begin
+    # `Float64` on an `x::Number` field must not be simplified to `Int`
+    # to avoid changing the field's type.
+    o = SAbstractField(1.0)
+    @test repr(o) == "SAbstractField(1.0)"
+    o2 = eval(Meta.parse(repr(o)))
+    @test typeof(o2.x) === typeof(o.x)
+    # `Int` on the same field stays `Int`.
+    @test repr(SAbstractField(1)) == "SAbstractField(1)"
+
+    # Same story for a small `Union`.
+    @test repr(SUnionField(1.0)) == "SUnionField(1.0)"
+    @test repr(SUnionField(1)) == "SUnionField(1)"
+
+    # `UnionAll` field: a `Vector{Float64}` must not silently render as a
+    # form that round-trips to `Vector{Int}`.
+    o = SUnionAllField([1.0, 1.0, 1.0, 1.0, 1.0])
+    s = repr(o)
+    o2 = eval(Meta.parse(s))
+    @test typeof(o2.x) === typeof(o.x)
+end
