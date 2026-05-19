@@ -51,54 +51,54 @@ SHybrid(a, b; c=3) = SHybrid(a, b, c)
 
 @testset "showrepr shortest representation" begin
     # All defaults: empty constructor wins.
-    @test sprint(show, SDefaults()) == "SDefaults()"
+    @test repr(SDefaults()) == "SDefaults()"
     # One non-default: only that field is shown.
-    @test sprint(show, SDefaults(b=10)) == "SDefaults(b = 10)"
+    @test repr(SDefaults(b=10)) == "SDefaults(b = 10)"
     # Last non-default with defaults preceding it.
-    @test sprint(show, SDefaults(c=30)) == "SDefaults(c = 30)"
+    @test repr(SDefaults(c=30)) == "SDefaults(c = 30)"
     # Multiple non-defaults: round-trip plus a sanity length bound. We do
     # not pin the exact rendering — the algorithm may pick the kwarg or
     # positional form depending on tie-breaking — but it must be no
     # longer than the naive all-positional form.
-    s = sprint(show, SDefaults(a=10, c=30))
+    s = repr(SDefaults(a=10, c=30))
     @test SDefaults(a=10, c=30) == eval(Meta.parse(s))
     @test length(s) <= length("SDefaults(10, 2, 30)")
     # All non-default.
-    s = sprint(show, SDefaults(a=10, b=20, c=30))
+    s = repr(SDefaults(a=10, b=20, c=30))
     @test SDefaults(a=10, b=20, c=30) == eval(Meta.parse(s))
 
     # `Base.@kwdef` synthesizes a kwconstructor that `showrepr` picks up
     # without `kwconstructor=true` being passed to `@batteries`.
-    @test sprint(show, SDefaultsKw()) == "SDefaultsKw()"
-    s = sprint(show, SDefaultsKw(b=10))
+    @test repr(SDefaultsKw()) == "SDefaultsKw()"
+    s = repr(SDefaultsKw(b=10))
     @test SDefaultsKw(b=10) == eval(Meta.parse(s))
     @test length(s) <= length("SDefaultsKw(1, 10)")
 
     # When extra positional constructors exist, the shortest one wins
     # over the keyword form.
-    @test sprint(show, SExtraCtor(1, 2)) == "SExtraCtor()"
-    @test sprint(show, SExtraCtor(7, 2)) == "SExtraCtor(7)"
-    @test sprint(show, SExtraCtor(7, 8)) == "SExtraCtor(7, 8)"
+    @test repr(SExtraCtor(1, 2)) == "SExtraCtor()"
+    @test repr(SExtraCtor(7, 2)) == "SExtraCtor(7)"
+    @test repr(SExtraCtor(7, 8)) == "SExtraCtor(7, 8)"
 
     # `missing` as a default value is handled correctly: a value of
     # `missing` matches the default (via `isequal`), while non-`missing`
     # values do not.
-    @test sprint(show, SMissingDefault()) == "SMissingDefault()"
-    @test sprint(show, SMissingDefault(a=missing, b=2)) == "SMissingDefault(b = 2)"
-    s = sprint(show, SMissingDefault(a=42, b=1))
+    @test repr(SMissingDefault()) == "SMissingDefault()"
+    @test repr(SMissingDefault(a=missing, b=2)) == "SMissingDefault(b = 2)"
+    s = repr(SMissingDefault(a=42, b=1))
     @test SMissingDefault(a=42, b=1) == eval(Meta.parse(s)) ||
           isequal(SMissingDefault(a=42, b=1), eval(Meta.parse(s)))
 
     # `NaN` field values are recognized as recreated even though
     # `NaN == NaN` is `false`.
-    @test sprint(show, SNaNCtor(NaN)) == "SNaNCtor()"
+    @test repr(SNaNCtor(NaN)) == "SNaNCtor()"
 
     # Hybrid constructor `SHybrid(a, b; c=3)`: when `c == 3`, the kwarg
     # is dropped and the 2-arg form wins. When `c` differs, the 3-arg
     # positional inner constructor happens to be shorter than the kwarg
     # form, so it wins. Either way the rendering recreates the object.
-    @test sprint(show, SHybrid(1, 2, 3)) == "SHybrid(1, 2)"
-    s = sprint(show, SHybrid(1, 2, 9))
+    @test repr(SHybrid(1, 2, 3)) == "SHybrid(1, 2)"
+    s = repr(SHybrid(1, 2, 9))
     @test SHybrid(1, 2, 9) == eval(Meta.parse(s))
     @test length(s) <= length("SHybrid(1, 2, c = 9)")
 end
@@ -112,8 +112,8 @@ end
 @batteries SUnsigned showrepr=true
 
 @testset "showrepr unsigned shortening" begin
-    @test sprint(show, SUnsigned(0x07, UInt64(42))) == "SUnsigned(7, 42)"
-    s = sprint(show, SUnsigned(0xff, UInt64(99)))
+    @test repr(SUnsigned(0x07, UInt64(42))) == "SUnsigned(7, 42)"
+    s = repr(SUnsigned(0xff, UInt64(99)))
     @test eval(Meta.parse(s)) == SUnsigned(0xff, UInt64(99))
 end
 
@@ -168,15 +168,15 @@ end
 @batteries SFloatFields showrepr=true
 
 @testset "showrepr float shortening" begin
-    @test sprint(show, SFloatFields(2.0, 3.0)) == "SFloatFields(2, 3)"
-    @test sprint(show, SFloatFields(2.5, 3.0)) == "SFloatFields(2.5, 3)"
-    @test sprint(show, SFloatFields(Inf, 1.0)) == "SFloatFields(Inf, 1)"
+    @test repr(SFloatFields(2.0, 3.0)) == "SFloatFields(2, 3)"
+    @test repr(SFloatFields(2.5, 3.0)) == "SFloatFields(2.5, 3)"
+    @test repr(SFloatFields(Inf, 1.0)) == "SFloatFields(Inf, 1)"
     # `NaN` is non-finite and must not be shortened to an integer.
-    s = sprint(show, SFloatFields(NaN, 2.0))
+    s = repr(SFloatFields(NaN, 2.0))
     @test occursin("NaN", s)
     @test isequal(eval(Meta.parse(s)), SFloatFields(NaN, 2.0))
     # -0.0 must round-trip exactly under isequal (the user may rely on the sign bit).
-    s = sprint(show, SFloatFields(-0.0, 1.0))
+    s = repr(SFloatFields(-0.0, 1.0))
     @test occursin("-0.0", s)
     @test isequal(eval(Meta.parse(s)), SFloatFields(-0.0, 1.0))
 end
@@ -190,9 +190,9 @@ end
 @batteries SRatFields showrepr=true
 
 @testset "showrepr rational shortening" begin
-    @test sprint(show, SRatFields(2//1, 3//4)) == "SRatFields(2, 3//4)"
-    @test sprint(show, SRatFields(0//1, 5//1)) == "SRatFields(0, 5)"
-    s = sprint(show, SRatFields(7//1, -2//3))
+    @test repr(SRatFields(2//1, 3//4)) == "SRatFields(2, 3//4)"
+    @test repr(SRatFields(0//1, 5//1)) == "SRatFields(0, 5)"
+    s = repr(SRatFields(7//1, -2//3))
     @test eval(Meta.parse(s)) == SRatFields(7//1, -2//3)
 end
 
@@ -205,9 +205,9 @@ end
 @batteries SCplxFields showrepr=true
 
 @testset "showrepr complex shortening" begin
-    @test sprint(show, SCplxFields(2 + 0im, 3 + 4im)) == "SCplxFields(2, 3 + 4im)"
-    @test sprint(show, SCplxFields(0 + 0im, 1 + 0im)) == "SCplxFields(0, 1)"
-    s = sprint(show, SCplxFields(7 + 0im, -2 + 5im))
+    @test repr(SCplxFields(2 + 0im, 3 + 4im)) == "SCplxFields(2, 3 + 4im)"
+    @test repr(SCplxFields(0 + 0im, 1 + 0im)) == "SCplxFields(0, 1)"
+    s = repr(SCplxFields(7 + 0im, -2 + 5im))
     @test eval(Meta.parse(s)) == SCplxFields(7 + 0im, -2 + 5im)
 end
 
@@ -239,20 +239,20 @@ end
 
 @testset "showrepr vector fill compression" begin
     # Long uniform vector → `fill(...)` is shorter than the literal.
-    @test sprint(show, SVecField([1,1,1,1,1], [2.0,3.0])) ==
+    @test repr(SVecField([1,1,1,1,1], [2.0,3.0])) ==
           "SVecField(fill(1, 5), [2.0, 3.0])"
     # Both fields uniform.
-    @test sprint(show, SVecField([7,7,7,7], [0.0,0.0,0.0,0.0])) ==
+    @test repr(SVecField([7,7,7,7], [0.0,0.0,0.0,0.0])) ==
           "SVecField(fill(7, 4), fill(0.0, 4))"
     # Short uniform vector ([1,1,1] vs fill(1,3)) → literal already
     # shorter, no compression.
-    @test sprint(show, SVecField([1,1,1], [1.0])) ==
+    @test repr(SVecField([1,1,1], [1.0])) ==
           "SVecField([1, 1, 1], [1.0])"
     # Non-uniform → no compression.
-    @test sprint(show, SVecField([1,2,3,4,5], [0.0,0.0,0.0,0.0])) ==
+    @test repr(SVecField([1,2,3,4,5], [0.0,0.0,0.0,0.0])) ==
           "SVecField([1, 2, 3, 4, 5], fill(0.0, 4))"
     # Empty / single element → no compression.
-    @test sprint(show, SVecField(Int[], [3.0])) ==
+    @test repr(SVecField(Int[], [3.0])) ==
           "SVecField(Int64[], [3.0])"
     # Round-trip every case: parsing the rendering must produce a value
     # equal to the original under `repr_eq`.
@@ -261,34 +261,34 @@ end
                    (Int[1,1,1], Float64[1.0]),
                    (Int[1,2,3,4,5], Float64[0.0,0.0,0.0,0.0]))
         o = SVecField(a, b)
-        s = sprint(show, o)
+        s = repr(o)
         @test eval(Meta.parse(s)) == o
     end
 
     # Default-omission still works when the kwarg's default also gets
     # compressed: `SVecFieldKwDefaults()` has both defaults so renders
     # without arguments.
-    @test sprint(show, SVecFieldKwDefaults()) == "SVecFieldKwDefaults()"
+    @test repr(SVecFieldKwDefaults()) == "SVecFieldKwDefaults()"
     # Overriding `a` with another long uniform vector still uses `fill`.
-    @test sprint(show, SVecFieldKwDefaults(a=[9,9,9,9,9,9])) ==
+    @test repr(SVecFieldKwDefaults(a=[9,9,9,9,9,9])) ==
           "SVecFieldKwDefaults(a = fill(9, 6))"
 
     # Strictly-typed field (NTuple) won't accept a `Vector` substitute,
     # so the default rendering is preserved.
-    @test sprint(show, STupleField((5,5,5))) == "STupleField((5, 5, 5))"
+    @test repr(STupleField((5,5,5))) == "STupleField((5, 5, 5))"
 
     # Run-length compression with a heterogeneous vector: the long zero
     # run is splatted while distinct elements stay literal.
-    @test sprint(show, SVecField([1,17,0,0,0,0,0,0,0,0], [1.0])) ==
+    @test repr(SVecField([1,17,0,0,0,0,0,0,0,0], [1.0])) ==
           "SVecField([1, 17, fill(0, 8)...], [1.0])"
     let o = SVecField([1,17,0,0,0,0,0,0,0,0], [1.0])
-        @test eval(Meta.parse(sprint(show, o))) == o
+        @test eval(Meta.parse(repr(o))) == o
     end
     # Multiple long runs are each splatted.
-    @test sprint(show, SVecField([1,1,1,1,1,1,2,2,2,2,2,2], [1.0])) ==
+    @test repr(SVecField([1,1,1,1,1,1,2,2,2,2,2,2], [1.0])) ==
           "SVecField([fill(1, 6)..., fill(2, 6)...], [1.0])"
     # Short runs aren't worth splatting → falls back to plain literal.
-    @test sprint(show, SVecField([1,17,0,0,0], [1.0])) ==
+    @test repr(SVecField([1,17,0,0,0], [1.0])) ==
           "SVecField([1, 17, 0, 0, 0], [1.0])"
 end
 
@@ -310,17 +310,17 @@ end
     # the string-shape assertions below are gated on Julia >= 1.7.
     if VERSION >= v"1.7"
         # Uniform → splat into the static constructor.
-        @test sprint(show, SStaticVecField(SVector(ntuple(_->0, Val(16))...))) ==
+        @test repr(SStaticVecField(SVector(ntuple(_->0, Val(16))...))) ==
               "SStaticVecField(SVector(fill(0, 16)...))"
         # Mixed leading element + uniform tail.
-        @test sprint(show, SStaticVecField(SVector(ntuple(i->i==1 ? 7 : 0, Val(16))...))) ==
+        @test repr(SStaticVecField(SVector(ntuple(i->i==1 ? 7 : 0, Val(16))...))) ==
               "SStaticVecField(SVector(7, fill(0, 15)...))"
     end
     # Round-trip the compressed forms (works on all versions).
     for v in (SVector(ntuple(_->0, Val(16))...),
               SVector(ntuple(i->i==1 ? 7 : 0, Val(16))...))
         o = SStaticVecField(v)
-        @test eval(Meta.parse(sprint(show, o))) == o
+        @test eval(Meta.parse(repr(o))) == o
     end
     # When the bracket literal is genuinely shorter than the wrapped form
     # (small array, small elements), `compact` rejects the wrapping and
@@ -347,7 +347,7 @@ end
 
 @testset "showrepr vector comprehension preserves distinct instances" begin
     o = SMutVec([MutCell(7), MutCell(7), MutCell(7), MutCell(7), MutCell(7)])
-    s = sprint(show, o)
+    s = repr(o)
     @test s == "SMutVec([MutCell(7) for _ = 1:5])"
     o2 = eval(Meta.parse(s))
     @test o2.cells[1] !== o2.cells[2]   # distinct instances, no aliasing
@@ -380,7 +380,7 @@ end
 @batteries SFallback showrepr=true selfconstructor=false eq=false isequal=false hash=false
 
 @testset "showrepr fallback when no constructor recreates" begin
-    s = sprint(show, _sfallback_inst)
+    s = repr(_sfallback_inst)
     @test occursin("SFallback", s)
     @test occursin("a", s) && occursin("7", s)
 end
@@ -396,9 +396,9 @@ end
 @batteries SMutNoEq showrepr=true eq=false isequal=false hash=false
 
 @testset "showrepr handles mutable structs without ==" begin
-    @test sprint(show, SMutNoEq())             == "SMutNoEq()"
-    @test sprint(show, SMutNoEq(b = 7))        == "SMutNoEq(0, 7)"
-    @test sprint(show, SMutNoEq(a = 1, b = 2)) == "SMutNoEq(1, 2)"
+    @test repr(SMutNoEq())             == "SMutNoEq()"
+    @test repr(SMutNoEq(b = 7))        == "SMutNoEq(0, 7)"
+    @test repr(SMutNoEq(a = 1, b = 2)) == "SMutNoEq(1, 2)"
 end
 
 # Vararg constructors must be skipped (we don't know how many fields to splat).
@@ -410,7 +410,7 @@ SVararg(args...) = SVararg(args[1], args[2])
 @batteries SVararg showrepr=true
 
 @testset "showrepr skips vararg constructors" begin
-    s = sprint(show, SVararg(1, 2))
+    s = repr(SVararg(1, 2))
     @test SVararg(1, 2) == eval(Meta.parse(s))
 end
 
